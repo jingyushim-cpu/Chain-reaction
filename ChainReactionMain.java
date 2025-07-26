@@ -90,7 +90,42 @@ public class ChainReactionMain {
     }
 
     public static void cleanData(ArrayList<ArrayList<String>> wordSets){
-	/**Add Code here to clean dataset**/
+
+        int previous = 0; // later used in while loop
+
+        //while loop until all the fixes are done
+        while(previous != wordSets.size()) {
+            previous = wordSets.size(); // get out of the while loop when there is no more fix to be done
+
+
+            ArrayList<String> firstWords = new ArrayList<>();       //arrayList for first words from each row
+            for (ArrayList<String> row : wordSets) {
+                firstWords.add(row.get(0));
+            }
+
+            //for loop to go through each row
+            for (int i = 0; i < wordSets.size(); i++) {
+                ArrayList<String> row = wordSets.get(i);
+                ArrayList<String> newRow = new ArrayList<>(); // new row to remove words that never appear first in any row
+
+                //add word to newRow if the word appears first in some row
+                for (String word : row) {
+                    if (firstWords.contains(word)) {
+                        newRow.add(word);
+                    }
+                }
+                //update wordSets with newRow
+                wordSets.set(i, newRow);
+            }
+
+            //remove the row if it only contains one word
+            for (int i = 0; i < wordSets.size(); i++) {
+                if (wordSets.get(i).size() < 2) {
+                    wordSets.remove(i);
+                    i--; //because row has been removed
+                }
+            }
+        }
 	    
         validate(wordSets);
     }
