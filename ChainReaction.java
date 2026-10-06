@@ -1,117 +1,189 @@
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
 public class ChainReaction {
 
-    private int guessCount;
-    private int chainLength;
+    private static final int MAX_ATTEMPTS = 20;
+
+    private final int guessCount;
+    private final int chainLength;
+    private final String[] gameWords;
+    private final ArrayList<ArrayList<String>> wordSets;
+    private final ArrayList<String[]> chainWords = new ArrayList<>();
+
+    private final Random random = new Random();
+    private final Scanner input;
+
     private int currentIndex;
-    String []gameWords;
-    private boolean chainSet;
 
-    ArrayList<ArrayList<String>> wordSets;
-    ArrayList<String[]> chainWords = new ArrayList<>();
-    Scanner input = new Scanner(System.in);
+    public ChainReaction(
+            int guesses,
+            int chainLength,
+            ArrayList<ArrayList<String>> wordSets,
+            Scanner input){
 
-    public ChainReaction(int guesses, int chainLength,ArrayList<ArrayList<String>> set){
         this.guessCount = guesses;
         this.chainLength = chainLength;
-        gameWords = new String[chainLength];
-        wordSets = set;
-        chainSet = false;
+        this.gameWords = new String[chainLength];
+        this.wordSets = wordSets;
+        this.input = input;
+
         currentIndex = 1;
     }
 
     public void playGame(){
+
         int guesses = 0;
 
-        getWords();
-        if(chainSet){
-            createChain();
-            updateChain();
-            revealChainWord(0);
-            revealChainWord(chainLength - 1);
-            showChain();
+        if(!generateChain()){
+            System.out.println("Unable to generate a valid chain. Please restart.");
+            return;
+        }
+        createChain();
+        revealNextLetter();
+        revealChainWord(0);
+        revealChainWord(chainLength - 1);
+        showChain();
 
-            while(guesses <= getGuessCount()){
-                System.out.println("Guesses Remaining: " + (getGuessCount() - guesses));
-                System.out.print("Enter a guess for word " + (getCurrentIndex() + 1) + " :");
-                String guess = input.nextLine().toLowerCase();
-                if(guess.equals(gameWords[getCurrentIndex()])){
-                    System.out.println("\nCorrect!....The word was " + guess);
-                    revealChainWord(getCurrentIndex());
-                    setCurrentIndex(getCurrentIndex()+1);
-                    updateChain();
-                    showChain();
-                    if(getCurrentIndex() == chainLength - 1){
-                        System.out.println("\nCONGRATULATIONS!  YOU HAVE COMPLETED THE CHAIN!\n");
-                        break;
-                    }
-                }
-                else{
-                    System.out.println("\nIncorrect....Try Again");
-                    updateChain();
-                    showChain();
-                }
-                guesses++;
-                if(guesses == getGuessCount()){
-                    System.out.println("Sorry.  You have run out of guesses :(\n");
-                    System.out.println("\nGAME OVER! :(");
-                    System.out.println("Here is the chain:\n");
-                    showChainWords();
+        while(guesses < guessCount){
+            System.out.println("Guesses Remaining: " + (guessCount - guesses));
+            System.out.print("Enter a guess for word " + (currentIndex + 1) + " :");
+
+            String guess = input.nextLine().trim().toLowerCase();
+
+            if(guess.equals(gameWords[currentIndex])){
+
+                System.out.println("\nCorrect!....The word was " + gameWords[currentIndex]);
+
+                revealChainWord(currentIndex);
+                currentIndex++;
+
+
+
+                if(currentIndex == chainLength - 1){
+                    System.out.println("\nCONGRATULATIONS!  YOU HAVE COMPLETED THE CHAIN!\n");
                     break;
                 }
 
+                showChain();
             }
-        }
-    }
+            else{
+                System.out.println("\nIncorrect....Try Again");
 
-    public void getWords(){
+                revealNextLetter();
+                showChain();
 
-        int randomSet = new Random().nextInt(wordSets.size());
-        gameWords[0] = wordSets.get(randomSet).get(0);
+                boolean wordCompleted = true;
 
-        String prevWord = gameWords[0];
-
-        prevWord = wordSets.get(randomSet).get(new Random().nextInt(wordSets.get(randomSet).size() - 1) + 1);
-        gameWords[1] = prevWord;
-
-        try{
-            for (int i = 2; i < gameWords.length; i++) {
-                boolean wordNeeded = true;
-                int attempts = 0;
-                while (wordNeeded) {
-                    for (int j = 0; j < wordSets.size(); j++) {
-                        if (prevWord.equals(wordSets.get(j).get(0))) {
-                            prevWord = wordSets.get(j).get(new Random().nextInt(wordSets.get(j).size() - 1) + 1);
-                            if (validateChain(prevWord, wordSets) || i == gameWords.length - 1) {
-                                gameWords[i] = prevWord;
-                                wordNeeded = false;
-                            }
-                        }
-                    }
-                    attempts++;
-                    if (attempts > 20) {
-                        throw new Exception("Unable to Complete Chain....Please Restart");
+                for(String letter : chainWords.get(currentIndex)){
+                    if(letter.equals("_")){
+                        wordCompleted = false;
+                        break;
                     }
                 }
+
+                if(wordCompleted){
+                    System.out.println("<<The word has been fully revealed. Enter it to continue>>");
+                }
             }
-            chainSet = true;
-        }
-        catch (Exception e){
-            System.out.println(e.getMessage());
+
+            guesses++;
+
+            if(guesses == guessCount){
+                System.out.println("Sorry.  You have run out of guesses :(\n");
+                System.out.println("\nGAME OVER! :(");
+                System.out.println("Here is the chain:\n");
+
+                showChainWords();
+            }
         }
     }
+    /**
+     * Generates a random chain of the requested length
+     * @return true if a valid chain was generated, otherwise false
+     */
+    private boolean generateChain(){
 
-    public void showChainWords(){
-        for (int i = 0; i < gameWords.length; i++) {
-            System.out.println(gameWords[i]);
+        if(chainLength < 3 || wordSets.isEmpty()) return false;
+
+        int randomSet = random.nextInt(wordSets.size());
+        ArrayList<String> startingSet = wordSets.get(randomSet);
+
+        if(startingSet.size() < 2) return false;
+
+        gameWords[0] = startingSet.get(0);
+        String prevWord = startingSet.get(random.nextInt(startingSet.size() - 1) + 1);
+        gameWords[1] = prevWord;
+
+        for (int i = 2; i < gameWords.length; i++) {
+
+            boolean wordFound = false;
+            int attempts = 0;
+
+            while (!wordFound && attempts < MAX_ATTEMPTS) {
+
+                int matchingSetIndex = findWordSet(prevWord);
+
+                if(matchingSetIndex == -1) return false;
+
+                ArrayList<String> matchingSet = wordSets.get(matchingSetIndex);
+
+                if(matchingSet.size() < 2) return false;
+
+                String candidateWord = matchingSet.get(random.nextInt(matchingSet.size() - 1) + 1);
+                boolean isLastWord = i == gameWords.length - 1;
+
+                if(isLastWord || hasWordSet(candidateWord)){
+                    gameWords[i] = candidateWord;
+                    prevWord = candidateWord;
+                    wordFound = true;
+                }
+
+                attempts++;
+            }
+            if(!wordFound) return false;
         }
+
+        return true;
     }
 
-    public void createChain(){
+    /**
+     * Finds the word set whose first word matches the supplied word
+     *
+     * @return the matching set index, or -1 if non exists
+     */
+    private int findWordSet(String word){
+
+        for(int i = 0; i < wordSets.size(); i++){
+
+            ArrayList<String> wordSet = wordSets.get(i);
+
+            if(!wordSet.isEmpty() && word.equals(wordSet.get(0)))
+                return i;
+        }
+
+        return -1;
+
+    }
+
+    /**
+     * Determines whether a word can continue the chain
+     */
+    private boolean hasWordSet(String word){
+        return findWordSet(word) != -1;
+    }
+
+    private void showChainWords(){
+
+        for(String word : gameWords){
+            System.out.println(word);
+        }
+
+    }
+
+    private void createChain(){
+
         chainWords.clear();
         for (int i = 0; i < gameWords.length; i++) {
             String[] letters = new String[gameWords[i].length()];
@@ -122,74 +194,40 @@ public class ChainReaction {
         }
     }
 
-    public void showChain(){
-        for (int i = 0; i < chainWords.size(); i++) {
-            for (int j = 0; j < chainWords.get(i).length; j++) {
-                System.out.print(chainWords.get(i)[j] + " ");
+    private void showChain(){
+        for(String[] word : chainWords){
+            for(String letter : word){
+                System.out.print(letter + " ");
             }
             System.out.println();
         }
     }
 
-    public void updateChain(){
-        for (int i = 0; i < chainWords.size(); i++) {
-            boolean letterSet = false;
-            for (int j = 0; j < chainWords.get(i).length; j++) {
-                if(chainWords.get(i)[j].equals("_")){
-                    chainWords.get(i)[j] = String.valueOf(gameWords[i].charAt(j));
-                    letterSet = true;
-                    break;
-                }
-            }
-            if(letterSet){
-                break;
+    /**
+     * Reveals one additional letter from the first unrevealed word
+     */
+    private void revealNextLetter(){
+        String[] currentWord = chainWords.get(currentIndex);
+
+        for(int i = 0; i < currentWord.length; i++){
+            if(currentWord[i].equals("_")){
+                currentWord[i] = String.valueOf(gameWords[currentIndex].charAt(i));
+                return;
             }
         }
     }
 
-    public void revealChainWord(int index){
-        chainWords.set(index,new String[]{gameWords[index]});
-    }
+    /**
+     * Reveals an entire word in the displayed chain
+     */
+    private void revealChainWord(int index){
+        String word = gameWords[index];
+        String[] letters = new String[word.length()];
 
-    public boolean validateChain(String word, ArrayList<ArrayList<String>> wordSets){
-        for(int i = 0; i < wordSets.size(); i++){
-            for(int j = 0; j < wordSets.get(i).size(); j++){
-                boolean wordFound = false;
-                for(int k = 0; k < wordSets.size(); k++){
-                    if(word.equals(wordSets.get(k).get(0))){
-                        wordFound = true;
-                        break;
-                    }
-                }
-                if(!wordFound){
-                    return false;
-                }
-            }
+        for(int i = 0; i < word.length(); i++){
+            letters[i] = String.valueOf(word.charAt(i));
         }
-        return true;
-    }
 
-    public int getGuessCount() {
-        return guessCount;
-    }
-
-    public void setGuessCount(int guessCount) {
-        this.guessCount = guessCount;
-    }
-
-    public int getChainLength() {
-        return chainLength;
-    }
-
-    public void setChainLength(int chainLength) {
-        this.chainLength = chainLength;
-    }
-
-    public int getCurrentIndex() {
-        return currentIndex;
-    }
-
-    public void setCurrentIndex(int currentIndex) {
-        this.currentIndex = currentIndex;
+        chainWords.set(index, letters);
     }
 }
